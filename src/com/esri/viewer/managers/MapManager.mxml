@@ -254,11 +254,7 @@ Class used to configure the viewer map component (including layers) and handle m
                 m_drawTool.addEventListener(DrawEvent.DRAW_END, drawEndHandler);
 
                 configMapAttributes();
-
                 configBasemaps();
-                configOperationalLayers();
-                configReferenceBasemaps();
-
                 setViewerVersion();
             }
 
@@ -434,6 +430,10 @@ Class used to configure the viewer map component (including layers) and handle m
                 {
                     loadNextBasemapLayer();
                 }
+                else
+                {
+                    configOperationalLayers();
+                }
 
                 if (layers.length > 0)
                 {
@@ -444,8 +444,10 @@ Class used to configure the viewer map component (including layers) and handle m
             private function loadNextBasemapLayer():void
             {
                 var basemapLayerObject:Object = m_basemapLayers[m_basemapLayerIndex];
+                var layer:Layer = basemapLayerObject.layer ? basemapLayerObject.layer : LayerCreator.createLayerFromLayerObject(basemapLayerObject);
+                basemapLayerObject.layer = layer;
 
-                addLayerToMap(basemapLayerObject);
+                // configure popups, if any
                 configureLayerRenderer(basemapLayerObject, false);
             }
 
@@ -478,20 +480,25 @@ Class used to configure the viewer map component (including layers) and handle m
                 {
                     loadNextOpertionalLayer();
                 }
+                else
+                {
+                    configReferenceBasemaps();
+                }
             }
 
             private function loadNextOpertionalLayer():void
             {
                 var optLayerObject:Object = m_operationalLayers[m_operationalLayerIndex];
+                var layer:Layer = optLayerObject.layer ? optLayerObject.layer : LayerCreator.createLayerFromLayerObject(optLayerObject);
+                optLayerObject.layer = layer;
 
-                // add layer to map and configure popups if any
-                addLayerToMap(optLayerObject);
+                // configure pop-ups, if any
                 configureLayerRenderer(optLayerObject, true);
             }
 
             private function addLayerToMap(layerObject:Object):void
             {
-                var layer:Layer = layerObject.layer ? layerObject.layer : LayerCreator.createLayerFromLayerObject(layerObject);
+                var layer:Layer = layerObject.layer;
                 if (layer)
                 {
                     layer.addEventListener(LayerEvent.LOAD_ERROR, layer_loadErrorEvent);
@@ -504,8 +511,6 @@ Class used to configure the viewer map component (including layers) and handle m
                     {
                         layer.addEventListener(FlexEvent.HIDE, kmlLayer_hideHandler);
                     }
-
-                    layerObject.layer = layer;
                     map.addLayer(layer);
                 }
                 else
@@ -1062,7 +1067,10 @@ Class used to configure the viewer map component (including layers) and handle m
                             }
                         }
                     }
-                    loadNextOperationalOrBasemapLayer(isOptLayer);
+                    else
+                    {
+                        loadNextOperationalOrBasemapLayer(isOptLayer);
+                    }
                 }
             }
 
@@ -1145,19 +1153,35 @@ Class used to configure the viewer map component (including layers) and handle m
             {
                 if (isOperationalLayer)
                 {
-                    m_optLayerTable.push(m_operationalLayers[m_operationalLayerIndex]);
+                    // add layer to map after popups have been configured, if any
+                    var optLayerObject:Object = m_operationalLayers[m_operationalLayerIndex];
+                    addLayerToMap(optLayerObject);
+
+                    m_optLayerTable.push(optLayerObject);
                     m_operationalLayerIndex++;
                     if (m_operationalLayerIndex < m_operationalLayers.length)
                     {
                         loadNextOpertionalLayer();
                     }
+                    else
+                    {
+                        configReferenceBasemaps(); // operational layers added, move on to reference layers, if any
+                    }
                 }
                 else
                 {
+                    // add layer to map after popups have been configured, if any
+                    var basemapLayerObject:Object = m_basemapLayers[m_basemapLayerIndex];
+                    addLayerToMap(basemapLayerObject);
+
                     m_basemapLayerIndex++;
                     if (m_basemapLayerIndex < m_basemapLayers.length)
                     {
                         loadNextBasemapLayer();
+                    }
+                    else
+                    {
+                        configOperationalLayers(); // basemap layers added, move on to operational layers, if any
                     }
                 }
             }
